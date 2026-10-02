@@ -8,6 +8,7 @@ import { Modal } from "./modal";
 import { ServiceForm } from "./service-form";
 import { MealEditor } from "./meal-editor";
 import { InstallApp } from "./install-app";
+import { ThemeToggle } from "./theme-toggle";
 
 type Tab = "tracker" | "payments" | "services";
 type Confirmation = { title: string; description: string; label: string; execute: () => Promise<Result<Snapshot>>; after?: () => void };
@@ -94,7 +95,7 @@ export function Tracker({ initial, today, userName }: { initial: Snapshot; today
       <div className="sidebar-note"><div className="note-leaf"><Leaf size={26} /></div><h3>A little routine.<br />A lot less guesswork.</h3><p>Log your meals and leave the mental maths to us.</p></div><div className="sidebar-bottom"><span className="avatar">{userName.slice(0, 1).toUpperCase()}</span><div><strong>{userName}</strong><span>Personal workspace</span></div><form action={actions.logOut}><button className="icon-button" aria-label="Sign out"><LogOut size={18} /></button></form></div>
     </aside>
     <main className="main-content">
-      <header className="topbar"><span className="mobile-brand"><span className="brand-mark" aria-hidden="true" /><span>mealbook</span></span><span className="topbar-date">{dayLabel(today)}</span><div className="topbar-actions"><span className="private-tag">Personal tracker</span><InstallApp /><button className={`icon-button ${busy ? "spinning" : ""}`} aria-label="Refresh data" disabled={busy} onClick={() => run(actions.refreshData)}><RefreshCw size={17} /></button><form className="mobile-logout" action={actions.logOut}><button className="icon-button" aria-label="Sign out"><LogOut size={17} /></button></form></div></header>
+      <header className="topbar"><span className="mobile-brand"><span className="brand-mark" aria-hidden="true" /><span>mealbook</span></span><span className="topbar-date">{dayLabel(today)}</span><div className="topbar-actions"><span className="private-tag">Personal tracker</span><ThemeToggle /><InstallApp /><button className={`icon-button ${busy ? "spinning" : ""}`} aria-label="Refresh data" disabled={busy} onClick={() => run(actions.refreshData)}><RefreshCw size={17} /></button><form className="mobile-logout" action={actions.logOut}><button className="icon-button" aria-label="Sign out"><LogOut size={17} /></button></form></div></header>
       <div className="page-content">
         <div className="page-heading"><div><span className="eyebrow">{tab === "tracker" ? "YOUR EVERYDAY, SIMPLIFIED" : tab === "payments" ? "A CLEAR PICTURE" : "THE PEOPLE WHO FEED YOU"}</span><h1>{tab === "tracker" ? "Your meal tracker" : tab === "payments" ? "Payments & balances" : "Your food services"}<span className="heading-dot">.</span></h1><p>{tab === "tracker" ? `Hey ${userName}, keep the meals logged and the balances clear.` : tab === "payments" ? "See what’s settled, what’s due, and every payment along the way." : "Your regular spots, their meal prices, and payment details."}</p></div><button className="button primary" onClick={() => { setError(""); setServiceForm("new"); }}><Plus size={17} /> Add service</button></div>
         {feedback}
