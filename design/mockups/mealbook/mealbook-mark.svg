@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <radialGradient id="mealbook-green" cx="40%" cy="28%" r="80%">
+      <stop stop-color="#168C59"/>
+      <stop offset="1" stop-color="#006B41"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="225" fill="url(#mealbook-green)"/>
+  <circle cx="256" cy="256" r="194" stroke="#F7FCF8" stroke-width="12"/>
+
+  <g stroke="#F7FCF8" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="rotate(-38 190 207)" stroke-width="12">
+      <path d="M165 88v44M183 84v48M201 86v46M219 94v38"/>
+      <path d="M165 133c0 20 12 32 27 32s27-12 27-32M192 165v164"/>
+    </g>
+    <g transform="rotate(38 325 205)" stroke-width="12">
+      <path d="M325 159v170"/>
+      <ellipse cx="325" cy="118" rx="34" ry="49" fill="#F7FCF8" stroke-width="8"/>
+    </g>
+
+    <path stroke-width="12" d="M131 267v105c0 12 13 18 23 12 40-24 76-28 102-13V263c-31-16-70-13-125 4Z"/>
+    <path stroke-width="12" d="M381 267v105c0 12-13 18-23 12-40-24-76-28-102-13V263c31-16 70-13 125 4Z"/>
+    <path stroke-width="8" d="M256 267v104M152 290c34-11 61-7 85 7M360 290c-34-11-61-7-85 7M152 322c34-11 61-7 85 7M360 322c-34-11-61-7-85 7"/>
+  </g>
+</svg>

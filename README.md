@@ -45,6 +45,10 @@ Only configured, verified Google emails may sign in. Every data operation checks
 
 Free plans have usage limits and their terms can change. Keep Neon and Netlify on their Free plans and monitor their dashboards. Neon may take a moment to wake after inactivity. Routine use by one person should be small, but there is no promise of unlimited hosting. Use a separate database branch and OAuth redirect configuration for preview deployments; previews must not share production data inadvertently.
 
+## Install on a phone or computer
+
+Open the deployed HTTPS site in your browser and use the **Install** button in Mealbook, or choose **Install app** / **Add to Home screen** from the browser menu. On iPhone or iPad, open the site in Safari, tap **Share**, choose **Add to Home Screen**, then tap **Add**. Launch Mealbook from its new home-screen icon. The installed app still needs an internet connection to sign in and sync meals with Neon.
+
 ## How it works
 
 - Add a service with its category (Tiffin by default), payment phone, and three meal prices.

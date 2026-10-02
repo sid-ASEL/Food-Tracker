@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 const path = (relative: string) => fileURLToPath(new URL(relative, import.meta.url));
 export default defineConfig({
   root: path("./"),
+  publicDir: path("../../public"),
   resolve: { alias: [
     { find: "@/app/actions", replacement: path("./actions.ts") },
     { find: "@", replacement: path("../../src") },
