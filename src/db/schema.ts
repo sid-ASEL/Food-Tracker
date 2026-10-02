@@ -1,6 +1,11 @@
 import { pgTable, uuid, text, integer, boolean, date, timestamp, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+export const accounts = pgTable("accounts", {
+  googleId: text("google_id").primaryKey(), ownerKey: text("owner_key").notNull().unique(),
+  email: text().notNull(), name: text(),
+});
+
 export const services = pgTable("services", {
   id: uuid().primaryKey(), owner: text().notNull(), name: text().notNull(), category: text().notNull(), phone: text().notNull(),
   breakfast: integer().notNull(), lunch: integer().notNull(), dinner: integer().notNull(),

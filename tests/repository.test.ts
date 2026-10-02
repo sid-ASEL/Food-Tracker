@@ -2,13 +2,14 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import * as schema from "@/db/schema";
 import { Repository } from "@/db/repository";
+import { Accounts } from "@/db/accounts";
 import { balances, type MealInput, type ServiceInput } from "@/lib/domain";
 
 const pg = new PGlite();
-await pg.exec(await readFile("migrations/0001_initial.sql", "utf8"));
+for (const file of (await readdir("migrations")).filter(f => f.endsWith(".sql")).sort()) await pg.exec(await readFile(`migrations/${file}`, "utf8"));
 // The same Drizzle Postgres query builder runs against isolated embedded Postgres.
 const db = drizzle(pg, { schema }) as unknown as NodePgDatabase<typeof schema>;
 const repo = new Repository(db, "owner@gmail.com");
@@ -21,7 +22,7 @@ async function expected(mealId?: string, cutoff = "2026-10-31") {
   return (await repo.snapshot()).meals.filter(m => m.serviceId === service.id && !m.paymentId && m.day <= cutoff && (!mealId || m.id === mealId)).map(m => ({ id: m.id, version: m.version }));
 }
 beforeEach(async () => {
-  await pg.exec("TRUNCATE payment_items, meals, payments, services CASCADE");
+  await pg.exec("TRUNCATE accounts, payment_items, meals, payments, services CASCADE");
   service = { id: crypto.randomUUID(), name: "Amma’s Kitchen", category: "Tiffin", phone: "9876543210", breakfast: 4000, lunch: 8000, dinner: 7000, archived: false, version: 0 };
   await repo.saveService(service);
 });
@@ -118,5 +119,70 @@ describe("persistent meal and payment flow", () => {
     const data = await repo.snapshot();
     expect(data.meals[0].paymentId).toBeTruthy();
     expect(data.payments[0].amount).toBe(0);
+  });
+});
+
+describe("Google account ownership", () => {
+  const accounts = new Accounts(db);
+  const identity = { googleId: "google-owner", email: "owner@gmail.com", name: "Owner", canClaimLegacy: true };
+  it("preserves legacy meals and payments without changing their owner", async () => {
+    const meal = entry(); await repo.saveMeal(meal);
+    await repo.pay(service.id, meal.day, crypto.randomUUID(), await expected(meal.id), meal.id);
+    await accounts.register(identity);
+    expect(await accounts.owner(identity.googleId)).toBe(identity.email);
+    const saved = await new Repository(db, await accounts.owner(identity.googleId)).snapshot();
+    expect(saved).toEqual(await repo.snapshot());
+    expect(saved.payments).toHaveLength(1);
+    await accounts.register({ ...identity, email: "renamed@gmail.com", name: "Renamed" });
+    expect(await accounts.owner(identity.googleId)).toBe(identity.email);
+    const [stored] = await db.select().from(schema.accounts);
+    expect(stored.email).toBe("renamed@gmail.com");
+    expect(stored.name).toBe("Renamed");
+  });
+  it("does not give a second identity an already claimed legacy tracker", async () => {
+    await accounts.register(identity);
+    const other = await accounts.register({ ...identity, googleId: "new-google-owner" });
+    expect(other.ownerKey).toBe("google:new-google-owner");
+    expect((await new Repository(db, other.ownerKey).snapshot()).services).toHaveLength(0);
+  });
+  it("does not claim third-party email records automatically", async () => {
+    const legacy = new Repository(db, "person@example.com");
+    await legacy.saveService({ ...service, id: crypto.randomUUID() });
+    const account = await accounts.register({ googleId: "external", email: "person@example.com", name: null, canClaimLegacy: false });
+    expect(account.ownerKey).toBe("google:external");
+    expect(await new Repository(db, account.ownerKey).snapshot()).toEqual({ services: [], meals: [], payments: [] });
+    expect((await legacy.snapshot()).services).toHaveLength(1);
+  });
+  it("makes repeat and concurrent registration idempotent", async () => {
+    const results = await Promise.all([accounts.register(identity), accounts.register(identity)]);
+    expect(results[0].ownerKey).toBe(results[1].ownerKey);
+    expect(await db.select().from(schema.accounts)).toHaveLength(1);
+    await expect(accounts.owner("missing")).rejects.toThrow("sign in again");
+  });
+  it("isolates two populated trackers and rejects cross-account identifiers", async () => {
+    const a = await accounts.register(identity);
+    const b = await accounts.register({ ...identity, googleId: "second", email: "second@gmail.com" });
+    const first = new Repository(db, a.ownerKey), second = new Repository(db, b.ownerKey);
+    const secondService = { ...service, id: crypto.randomUUID(), name: "Second kitchen" };
+    await second.saveService(secondService);
+    const firstMeal = entry(), secondMeal = { ...entry(), serviceId: secondService.id };
+    await first.saveMeal(firstMeal); await second.saveMeal(secondMeal);
+    const request = crypto.randomUUID();
+    const payment = await first.pay(service.id, firstMeal.day, request, [{ id: firstMeal.id, version: 1 }], firstMeal.id);
+    await expect(second.pay(secondService.id, secondMeal.day, request, [{ id: secondMeal.id, version: 1 }], secondMeal.id)).rejects.toThrow("does not match");
+    await expect(second.saveService({ ...service, version: 1 })).rejects.toThrow("not found");
+    await expect(second.saveMeal({ ...firstMeal, version: 2 })).rejects.toThrow("not found");
+    await expect(second.saveMeal({ ...firstMeal, serviceId: secondService.id, version: 2 })).rejects.toThrow("identity");
+    await expect(second.deleteMeal(service.id, firstMeal.id, 2)).rejects.toThrow("not found");
+    await expect(second.pay(service.id, firstMeal.day, crypto.randomUUID(), [{ id: firstMeal.id, version: 2 }], firstMeal.id)).rejects.toThrow("not found");
+    await expect(second.reverse(secondService.id, payment)).rejects.toThrow("not found");
+    const secondPayment = await second.pay(secondService.id, secondMeal.day, crypto.randomUUID(), [{ id: secondMeal.id, version: 1 }], secondMeal.id);
+    const firstData = await first.snapshot(), secondData = await second.snapshot();
+    expect(firstData.services.map(s => s.id)).toEqual([service.id]);
+    expect(secondData.services.map(s => s.id)).toEqual([secondService.id]);
+    expect(firstData.meals.map(m => m.id)).toEqual([firstMeal.id]);
+    expect(secondData.meals.map(m => m.id)).toEqual([secondMeal.id]);
+    expect(firstData.payments.map(p => p.id)).toEqual([payment]);
+    expect(secondData.payments.map(p => p.id)).toEqual([secondPayment]);
   });
 });
